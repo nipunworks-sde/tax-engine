@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TaxEase — Calculator</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body class="calc-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="nav-logo">
+      <div class="logo-icon-sm">₹</div>
+      <span>TaxEase</span>
+    </div>
+    <div class="nav-right">
+      <span class="nav-user">👤 {{ user.name }}</span>
+      <a href="/logout" class="btn-logout">Logout</a>
+    </div>
+  </nav>
+
+  <div class="main-container">
+    <div class="page-header">
+      <h1>Income Tax Calculator</h1>
+      <p>FY 2024-25 · AY 2025-26 · Based on latest Indian tax slabs</p>
+    </div>
+
+    <div class="calc-layout">
+
+      <!-- ── Input Form ── -->
+      <div class="input-panel">
+        <div class="card">
+          <h2 class="card-title">Enter Your Details</h2>
+
+          <div class="form-group">
+            <label>Annual Income (₹)</label>
+            <input type="number" id="income" placeholder="e.g. 1200000"/>
+            <span class="helper">Enter your total annual gross income</span>
+          </div>
+
+          <div class="section-divider"><span>Deductions (Old Regime)</span></div>
+
+          <div class="form-group">
+            <label>Section 80C (₹) <span class="limit">Max ₹1,50,000</span></label>
+            <input type="number" id="sec80c" placeholder="PPF, ELSS, LIC, EPF..."/>
+          </div>
+
+          <div class="form-group">
+            <label>Section 80D (₹) <span class="limit">Max ₹25,000</span></label>
+            <input type="number" id="sec80d" placeholder="Health Insurance Premium..."/>
+          </div>
+
+          <div class="form-group">
+            <label>HRA Exemption (₹)</label>
+            <input type="number" id="hra" placeholder="House Rent Allowance..."/>
+          </div>
+
+          <button class="btn-primary" onclick="calculate()">Calculate Tax →</button>
+        </div>
+
+        <!-- Tax Slabs Reference -->
+        <div class="card">
+          <h3 class="card-title">📊 Tax Slabs 2024-25</h3>
+          <div class="regime-toggle">
+            <button class="toggle-btn active" onclick="showSlab('new', this)">New Regime</button>
+            <button class="toggle-btn" onclick="showSlab('old', this)">Old Regime</button>
+          </div>
+
+          <div id="slab-new" class="slab-content">
+            <table class="slab-table">
+              <tr><th>Income Range</th><th>Rate</th></tr>
+              <tr><td>Up to ₹3,00,000</td><td class="rate-nil">Nil</td></tr>
+              <tr><td>₹3L – ₹6L</td><td class="rate">5%</td></tr>
+              <tr><td>₹6L – ₹9L</td><td class="rate">10%</td></tr>
+              <tr><td>₹9L – ₹12L</td><td class="rate">15%</td></tr>
+              <tr><td>₹12L – ₹15L</td><td class="rate">20%</td></tr>
+              <tr><td>Above ₹15L</td><td class="rate-high">30%</td></tr>
+            </table>
+            <p class="slab-note">+ 4% Health & Education Cess | Rebate u/s 87A up to ₹7L</p>
+          </div>
+
+          <div id="slab-old" class="slab-content hidden">
+            <table class="slab-table">
+              <tr><th>Income Range</th><th>Rate</th></tr>
+              <tr><td>Up to ₹2,50,000</td><td class="rate-nil">Nil</td></tr>
+              <tr><td>₹2.5L – ₹5L</td><td class="rate">5%</td></tr>
+              <tr><td>₹5L – ₹10L</td><td class="rate">20%</td></tr>
+              <tr><td>Above ₹10L</td><td class="rate-high">30%</td></tr>
+            </table>
+            <p class="slab-note">+ 4% Health & Education Cess | Rebate u/s 87A up to ₹5L | Std. Deduction ₹50,000</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Results Panel ── -->
+      <div class="results-panel">
+
+        <!-- Empty state -->
+        <div id="empty-state" class="empty-state">
+          <div class="empty-icon">🧮</div>
+          <h3>Enter your income to calculate tax</h3>
+          <p>Fill in the details on the left and click Calculate Tax</p>
+        </div>
+
+        <!-- Results (hidden until calculated) -->
+        <div id="results" class="hidden">
+
+          <!-- Better Regime Banner -->
+          <div id="regime-banner" class="regime-banner"></div>
+
+          <!-- Comparison Cards -->
+          <div class="comparison-grid">
+            <div class="tax-card new-card">
+              <div class="tax-card-header">
+                <span class="regime-label">New Regime</span>
+                <span class="regime-badge new-badge">2024-25</span>
+              </div>
+              <p class="tax-amount" id="new-tax">₹0</p>
+              <p class="tax-label">Total Tax Payable</p>
+              <div class="take-home-row">
+                <span>Take Home</span>
+                <span id="take-home-new" class="take-home-amt">₹0</span>
+              </div>
+            </div>
+
+            <div class="tax-card old-card">
+              <div class="tax-card-header">
+                <span class="regime-label">Old Regime</span>
+                <span class="regime-badge old-badge">2024-25</span>
+              </div>
+              <p class="tax-amount" id="old-tax">₹0</p>
+              <p class="tax-label">Total Tax Payable</p>
+              <div class="take-home-row">
+                <span>Take Home</span>
+                <span id="take-home-old" class="take-home-amt">₹0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tax Breakdown Bar -->
+          <div class="card">
+            <h3 class="card-title">💰 Income Breakdown</h3>
+            <div class="breakdown-bars" id="breakdown-bars"></div>
+            <div class="bar-legend">
+              <span class="legend-dot green"></span> Take Home
+              <span class="legend-dot red"></span> Tax Paid
+            </div>
+          </div>
+
+          <!-- Income Range Filter -->
+          <div class="card">
+            <h3 class="card-title">📈 Tax at Different Income Levels</h3>
+            <div class="range-filter">
+              <button class="filter-btn active" onclick="filterRange('all', this)">All</button>
+              <button class="filter-btn" onclick="filterRange('new', this)">New Regime</button>
+              <button class="filter-btn" onclick="filterRange('old', this)">Old Regime</button>
+            </div>
+            <div id="range-table-container"></div>
+          </div>
+
+          <!-- Tax Saving Tips -->
+          <div class="card tips-card">
+            <h3 class="card-title">💡 Personalized Tax Saving Tips</h3>
+            <ul id="tips-list"></ul>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
